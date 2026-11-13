@@ -1,70 +1,88 @@
-# Getting Started with Create React App
+# Gacha Waifu
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Simulator gacha waifu (React + Tailwind) dengan **Feature-Based Architecture**.
 
-## Available Scripts
+## Menjalankan
 
-In the project directory, you can run:
+```bash
+npm install
+npm start        # dev server
+npm run build    # build produksi
+npm test         # unit test
+npm run typecheck
+```
 
-### `npm start`
+## Struktur
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+```
+src/
+├─ features/
+│  └─ gacha/
+│     ├─ api/          # gachaApi.ts (banner, state, pull)
+│     ├─ components/   # GachaView, GachaBanner, PullButtons, PityCounter, PullResultOverlay, WaifuResultCard
+│     ├─ hooks/        # useGacha, useUserState
+│     ├─ types/        # tipe fitur gacha
+│     └─ index.ts      # public API fitur
+├─ components/         # UI global: Button, GachaButton, WaifuCard, HistoryDrawer
+├─ config/             # env.ts, gacha.ts (biaya pull, pity, maxHistory)
+├─ hooks/              # useLockBodyScroll, useFocusTrap
+├─ layouts/            # AppLayout
+├─ routes/             # AppRoutes
+├─ services/           # apiClient (fetch + error + CSRF)
+├─ types/              # Rarity
+└─ utils/              # rarity (tema 3★ biru / 4★ ungu / 5★ emas), format, error
+```
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Kontrak API
 
-### `npm test`
+Base URL: `REACT_APP_API_BASE_URL` (lihat `.env.example`).
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+| Endpoint | Method | Keterangan |
+| --- | --- | --- |
+| `/api/gacha/banner` | GET | Banner aktif + karakter unggulan & rate up |
+| `/api/gacha/state` | GET | State user: `gems`, `pity`, `pityLimit`, `freeGemsAvailable` |
+| `/api/gacha/pull` | POST | Body `{ count: 1 \| 10 }`, mengembalikan hasil pull + state user terbaru |
 
-### `npm run build`
+Semua respons boleh dibungkus `{ data: ... }`. State user dibaca dari
+`userState` → `state` → `user` → **root payload** (urutan fallback identik untuk
+`GET /state` dan `POST /pull`, sehingga `gems`/`pity` di root tetap terbaca).
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+- `pity` = jumlah pull yang **sudah terpakai** sejak 5★ terakhir (`0..pityLimit`).
+  Bila backend mengirim `pityRemaining`/`pullsUntilPity`, frontend mengonversinya otomatis.
+- Rarity hasil dinormalisasi ke `3 | 4 | 5` (mendukung kode lama `R`/`SR`/`SSR`).
+- **Merge vs replace**: respons `POST /pull` boleh mengirim state parsial
+  (mis. hanya `{ gems: 1440 }`). Frontend melakukan *merge* ke state terakhir,
+  sehingga `pity` tidak ter-reset saat backend tidak menyertakannya.
+  Regresi ini dikunci oleh test `src/features/gacha/hooks/__tests__/useUserState.test.tsx`.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### Keamanan request
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+- `apiClient` mengirim cookie (`credentials: "include"`) dan menyertakan header
+  `X-CSRF-Token` untuk semua request non-GET. Token dibaca dari
+  `<meta name="csrf-token" content="...">` atau cookie `csrf_token`/`XSRF-TOKEN`.
+- Backend wajib memvalidasi token tersebut, serta mengirim
+  `Access-Control-Allow-Credentials: true` dengan origin eksplisit (bukan `*`)
+  dan menetapkan cookie sesi `HttpOnly; Secure; SameSite=Lax|Strict`.
 
-### `npm run eject`
+## Ikon & PWA
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+Repo ini **hanya menyimpan ikon SVG** (`public/favicon.svg`,
+`public/icons/maskable.svg`). Keputusan ini disengaja karena source code tidak
+dapat membuat file biner (PNG/ICO) di pipeline PR.
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+Implikasi / keterbatasan yang diketahui:
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+- `public/favicon.ico` **tidak disediakan** — `index.html` hanya mereferensikan
+  `favicon.svg`. Browser modern memakainya; browser sangat lama (IE) akan jatuh
+  ke ikon default. Tidak ada link `.ico` yang 404.
+- `apple-touch-icon` (PNG 180x180) **tidak disediakan** — ikon iOS akan memakai
+  screenshot halaman. Bila ingin ikon iOS proper, tambahkan file
+  `public/apple-touch-icon.png` (180x180) lalu tambahkan
+  `<link rel="apple-touch-icon">` di `public/index.html`.
+- `manifest.json` hanya mendeklarasikan ikon SVG (`sizes: "any"`). Sebagian
+  tooling PWA menyarankan PNG 192/512. Bila targetnya PWA penuh, tambahkan
+  `icons/icon-192.png` & `icons/icon-512.png` dan daftarkan di `manifest.json`.
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+Ikon maskable (`public/icons/maskable.svg`) sudah memenuhi syarat safe zone
+80% (konten dibatasi ±207px dari 512px) sehingga tidak terpotong saat Android
+memberlakukan mask circle/squircle.

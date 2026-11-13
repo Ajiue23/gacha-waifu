@@ -1,6 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  background-color: #05040a;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu",
+    "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -9,6 +25,23 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
 }
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/*
+ * Animasi (gacha-float, fade-in, pop-in, shine, rarity-burst, slide-in)
+ * didefinisikan di `tailwind.config.js` lewat `theme.extend`. Blok di bawah
+ * hanya menonaktifkannya untuk pengguna yang meminta minim gerakan.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .animate-gacha-float,
+  .animate-fade-in,
+  .animate-pop-in,
+  .animate-shine,
+  .animate-rarity-burst,
+  .animate-slide-in {
+    animation: none !important;
+  }
+
+  /* Kilau statis tanpa animasi hanya "menempel" di kartu, jadi disembunyikan. */
+  .animate-shine {
+    display: none !important;
+  }
+}
