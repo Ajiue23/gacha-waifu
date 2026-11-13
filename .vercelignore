@@ -1,0 +1,14 @@
+# Backend (paket terpisah) tidak perlu diunggah ke Vercel
+server/
+node_modules/
+coverage/
+build/
+
+# Rahasia tidak boleh ikut terunggah; env diisi dari dashboard Vercel
+.env
+.env.local
+.env.*.local
+
+.git/
+.github/
+*.log

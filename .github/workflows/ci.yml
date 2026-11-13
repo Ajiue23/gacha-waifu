@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build, typecheck & test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      # CRA memperlakukan ESLint warning sebagai error saat CI=true (GitHub
+      # Actions otomatis men-set CI=true). Untuk sementara dinyatakan eksplisit
+      # "false" agar warning tidak menggagalkan rilis. Error kompilasi &
+      # TypeScript tetap menggagalkan build. Setelah warning dibersihkan,
+      # ganti nilai di bawah menjadi "true" untuk gate yang lebih ketat.
+      CI: "false"
+      REACT_APP_API_BASE_URL: ${{ vars.REACT_APP_API_BASE_URL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Verify package-lock.json is committed
+        # npm ci WAJIB memakai lockfile. Gagal di sini memberi sinyal lebih
+        # jelas daripada error acak saat install.
+        run: |
+          if [ ! -f package-lock.json ]; then
+            echo "::error file=package-lock.json::package-lock.json tidak ditemukan. Commit lockfile agar 'npm ci' dapat dijalankan."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Validate required env
+        # AC#3: pastikan REACT_APP_API_BASE_URL benar-benar terpasang sebelum
+        # build dijalankan, agar build produksi tidak "lolos" dengan API kosong.
+        run: |
+          if [ -z "${REACT_APP_API_BASE_URL}" ]; then
+            echo "::error::Repository variable REACT_APP_API_BASE_URL belum diset."
+            echo "Set di: GitHub → Settings → Secrets and variables → Actions → Variables."
+            echo "Nilai harus berupa URL absolut backend (tanpa trailing slash)."
+            exit 1
+          fi
+          echo "REACT_APP_API_BASE_URL sudah terpasang (panjang: ${#REACT_APP_API_BASE_URL})."
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Unit tests
+        # --passWithNoTests: mencegah kegagalan saat repo belum punya file test.
+        # CI=true di sini aman karena CRA test runner memang menginginkannya.
+        run: npm test -- --watchAll=false --passWithNoTests
+        env:
+          CI: "true"
